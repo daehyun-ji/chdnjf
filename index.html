@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>심화 미적분 탐구 - 초월함수의 테일러 급수 근사 및 오차 분석</title>
+    <title>심화 미적분 - 테일러 급수 형성 과정 동적 시뮬레이터</title>
     <style>
         :root {
             --bg-main: #0b0f19;
-            --bg-panel: rgba(15, 23, 42, 0.9);
+            --bg-panel: rgba(15, 23, 42, 0.95);
             --border-color: #1e293b;
             --text-main: #f3f4f6;
             --text-muted: #94a3b8;
             --accent-blue: #38bdf8;
             --accent-green: #34d399;
             --accent-rose: #f43f5e;
-            --accent-yellow: #f59e0b;
+            --accent-purple: #c084fc;
         }
 
         body {
@@ -24,37 +24,34 @@
             color: var(--text-main);
         }
 
-        #app-container {
-            display: flex; width: 100vw; height: 100vh;
-        }
+        #app-container { display: flex; width: 100vw; height: 100vh; }
+        #canvas-container { flex: 1; height: 100%; position: relative; }
+        canvas { width: 100%; height: 100%; display: block; }
 
-        /* 메인 그래프 영역 */
-        #canvas-container {
-            flex: 1; height: 100%; position: relative;
-        }
-        canvas {
-            width: 100%; height: 100%; display: block;
-        }
-
-        /* 우측 제어 및 데이터 분석 대시보드 */
         #sidebar {
-            width: 400px; height: 100%; background: var(--bg-panel);
+            width: 420px; height: 100%; background: var(--bg-panel);
             border-left: 1px solid var(--border-color); backdrop-filter: blur(12px);
-            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
             padding: 25px; box-sizing: border-box;
             display: flex; flex-direction: column; gap: 20px; overflow-y: auto;
-            z-index: 10;
+            z-index: 10; box-shadow: -10px 0 30px rgba(0,0,0,0.5);
         }
 
-        h2 { margin: 0; color: var(--accent-blue); font-size: 1.3rem; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
-        .section-title { font-size: 0.95rem; font-weight: bold; color: var(--text-muted); margin-bottom: 5px; }
+        h2 { margin: 0; color: var(--accent-blue); font-size: 1.25rem; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        .section-title { font-size: 0.9rem; font-weight: bold; color: var(--text-muted); margin-bottom: 5px; }
 
         .control-group { display: flex; flex-direction: column; gap: 8px; }
         select, button {
             background: #1e293b; color: var(--text-main); border: 1px solid var(--border-color);
             padding: 12px; border-radius: 8px; cursor: pointer; font-size: 0.95rem; transition: all 0.2s;
         }
-        select:hover, button:hover { background: #334155; border-color: var(--accent-blue); }
+        select:hover { background: #334155; border-color: var(--accent-blue); }
+        
+        /* 빌드업 재생 버튼 커스텀 */
+        #btn-animate {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border: none; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 12px rgba(3,105,161,0.3);
+        }
+        #btn-animate:hover { background: linear-gradient(135deg, #0369a1, #075985); transform: translateY(-1px); }
 
         .slider-wrapper {
             background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color);
@@ -62,30 +59,25 @@
         }
         input[type=range] { width: 100%; height: 6px; border-radius: 3px; accent-color: var(--accent-blue); margin-top: 8px; }
 
-        /* 데이터 카드 양식 */
         .data-card {
             background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-color);
-            border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;
+            border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 8px;
         }
-        .data-row { display: flex; justify-content: space-between; font-size: 0.9rem; align-items: center; }
-        .data-val { font-weight: bold; }
         
         .formula-box {
-            background: #1e293b; padding: 12px; border-radius: 8px;
-            font-size: 0.85rem; color: #fda4af; font-family: monospace;
-            white-space: pre-wrap; word-break: break-all; line-height: 1.4;
+            background: #1e293b; padding: 15px; border-radius: 8px;
+            font-size: 0.95rem; font-family: 'Courier New', monospace;
+            line-height: 1.6; white-space: pre-wrap; word-break: break-all;
         }
 
-        .legend { display: flex; gap: 15px; font-size: 0.85rem; margin-top: 5px; }
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .color-dot { width: 12px; height: 12px; border-radius: 3px; }
+        /* 수식 빌드업 애니메이션 하이라이트 효과 */
+        .term-active { color: var(--accent-rose); font-weight: bold; text-decoration: underline; background: rgba(244,63,94,0.15); padding: 2px 4px; border-radius: 4px; }
+        .term-past { color: var(--text-main); opacity: 0.8; }
+        .term-future { color: var(--text-muted); opacity: 0.25; }
 
-        #tooltip {
-            position: absolute; background: rgba(15, 23, 42, 0.95);
-            border: 1px solid var(--accent-yellow); border-radius: 6px;
-            padding: 8px 12px; font-size: 0.85rem; pointer-events: none;
-            display: none; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
+        .legend { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; margin-top: 5px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .color-dot { width: 14px; height: 4px; border-radius: 2px; }
     </style>
 </head>
 <body>
@@ -93,89 +85,66 @@
     <div id="app-container">
         <div id="canvas-container">
             <canvas id="graphCanvas"></canvas>
-            <div id="tooltip"></div>
         </div>
 
         <div id="sidebar">
-            <h2>테일러 급수 해석기</h2>
+            <h2>과정 중심 테일러 시뮬레이터</h2>
             
             <div class="control-group">
                 <div class="section-title">대상 초월함수 선택</div>
                 <select id="select-func">
-                    <option value="sin">f(x) = sin(x) [교대급수형]</option>
-                    <option value="cos">f(x) = cos(x) [짝수차수형]</option>
-                    <option value="exp">f(x) = e^x [자연지수형]</option>
-                    <option value="ln">f(x) = ln(1+x) [조건부수렴형 (-1&lt;x≤1)]</option>
+                    <option value="sin">f(x) = sin(x)</option>
+                    <option value="cos">f(x) = cos(x)</option>
+                    <option value="exp">f(x) = e^x</option>
                 </select>
             </div>
 
             <div class="slider-wrapper">
-                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
-                    <span>다항식 근사 차수 (Degree $n$)</span>
-                    <span id="lbl-degree" style="color:var(--accent-blue); font-weight:bold;">1</span>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px;">
+                    <span>최종 도달 목표 차수 (Max $n$)</span>
+                    <span id="lbl-degree" style="color:var(--accent-blue); font-weight:bold;">5</span>
                 </div>
-                <input type="range" id="slider-degree" min="0" max="15" step="1" value="1">
-                <div class="legend">
-                    <div class="legend-item"><span class="color-dot" style="background:var(--accent-green)"></span>원본 f(x)</div>
-                    <div class="legend-item"><span class="color-dot" style="background:var(--accent-rose)"></span>테일러 다항식 P_n(x)</div>
-                </div>
-            </div>
-
-            <div class="data-card">
-                <div class="section-title">매클로린 전개식 ($a=0$ 기준)</div>
-                <div id="box-formula" class="formula-box">P_1(x) = x</div>
-            </div>
-
-            <div class="data-card">
-                <div class="section-title">특정 위치 오차 분석 ($x$ 추적)</div>
-                <div class="slider-wrapper" style="padding:0; background:none; border:none;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
-                        <span>탐색 지점 ($x$)</span>
-                        <span id="lbl-target-x" style="color:var(--accent-yellow);">1.00</span>
-                    </div>
-                    <input type="range" id="slider-x" min="-3" max="3" step="0.1" value="1" style="accent-color:var(--accent-yellow);">
-                </div>
+                <input type="range" id="slider-degree" min="1" max="13" step="2" value="5">
                 
-                <hr style="border-color: var(--border-color); margin: 5px 0;">
+                <hr style="border-color: var(--border-color); margin: 12px 0;">
+                
+                <button id="btn-animate" style="width:100%;">⚡ 급수 합성과정 애니메이션 재생</button>
+            </div>
 
-                <div class="data-row">
-                    <span>참값 $f(x)$:</span>
-                    <span id="val-true" class="data-val" style="color:var(--accent-green);">-</span>
-                </div>
-                <div class="data-row">
-                    <span>근사치 $P_n(x)$:</span>
-                    <span id="val-approx" class="data-val" style="color:var(--accent-rose);">-</span>
-                </div>
-                <div class="data-row">
-                    <span>절대 오차 ($|R_n|$):</span>
-                    <span id="val-error" class="data-val" style="color:var(--accent-yellow);">-</span>
+            <div class="data-card">
+                <div class="section-title" id="lbl-step-info">현재 상태: 대기 중</div>
+                <div class="legend">
+                    <div class="legend-item"><span class="color-dot" style="background:var(--accent-green)"></span>원본 초월함수 $f(x)$</div>
+                    <div class="legend-item"><span class="color-dot" style="background:var(--accent-rose)"></span>직전 단계까지 누적된 다항식 $P_{n-1}(x)$</div>
+                    <div class="legend-item"><span class="color-dot" style="border-top:2px dashed var(--accent-purple)"></span>현재 순서에서 새로 유입되는 단독 항 고유 곡선</div>
                 </div>
             </div>
 
-            <div style="font-size:0.8rem; color:var(--text-muted); line-height:1.5; background: rgba(30,41,59,0.3); padding:12px; border-radius:8px;">
-                <strong>🔬 심화 미적분 탐구 코멘트:</strong><br>
-                차수($n$)가 무한히 커질 때 다항식은 원래 함수로 수렴합니다. 특히 $ln(1+x)$의 경우 수렴반경이 $R=1$이므로 $x > 1$ 영역에서는 차수를 아무리 높여도 다항식이 수렴하지 않고 극심하게 발산하는 규칙성도 함께 관찰할 수 있습니다.
+            <div class="data-card">
+                <div class="section-title">급수 누적 전개 과정 (실시간 매핑)</div>
+                <div id="box-formula" class="formula-box"></div>
             </div>
-            
-            <button id="btn-reset-zoom" style="width:100%;">그래프 화면 원점 리셋</button>
+
+            <button id="btn-reset" style="width:100%; background:transparent; color:var(--text-muted);">그래프 시점 초기화</button>
         </div>
     </div>
 
     <script>
         const canvas = document.getElementById('graphCanvas');
         const ctx = canvas.getContext('2d');
-        
-        // 상태 변수
-        let currentFunc = 'sin';
-        let degree = 1;
-        let targetX = 1.0;
-        
-        // 카메라/좌표계 세팅 (기본 배율 및 중심점)
-        let scale = 80; // 1단위당 픽셀 크기
-        let originX = 0;
-        let originY = 0;
 
-        // 계승(Factorial) 함수
+        let currentFunc = 'sin';
+        let targetMaxDegree = 5; 
+        
+        // 애니메이션 컨트롤 변수들
+        let currentAnimStep = 0;   // 현재 애니메이션이 보여주고 있는 항의 인덱스
+        let isAnimating = false;
+        let animProgress = 1.0;    // 0.0에서 1.0으로 가면서 선이 합성되는 모션 연출용
+        let lastTimestamp = 0;
+
+        let scale = 90;
+        let originX = 0, originY = 0;
+
         function factorial(num) {
             if (num <= 1) return 1;
             let res = 1;
@@ -183,83 +152,48 @@
             return res;
         }
 
-        // 대상 초월함수 정의 원본
         const Functions = {
-            sin: Math.sin,
-            cos: Math.cos,
-            exp: Math.exp,
-            ln: (x) => Math.log(1 + x)
+            sin: Math.sin, cos: Math.cos, exp: Math.exp
         };
 
-        // 테일러(매클로린) 다항식 값 계산 핵심 함수
-        function taylorApprox(func, x, n) {
-            let sum = 0;
+        // 각 함수별 n번째 실제로 유효하게 존재하는 다항식 항들의 목록 배열 반환
+        function getActiveTerms(func, maxDeg) {
+            let terms = [];
             if (func === 'sin') {
-                for (let i = 0; i <= n; i++) {
-                    if (2 * i + 1 > n) break;
-                    let term = Math.pow(-1, i) * Math.pow(x, 2 * i + 1) / factorial(2 * i + 1);
-                    sum += term;
-                }
+                for (let i = 0; 2 * i + 1 <= maxDeg; i++) terms.push(2 * i + 1);
             } else if (func === 'cos') {
-                for (let i = 0; i <= n; i++) {
-                    if (2 * i > n) break;
-                    let term = Math.pow(-1, i) * Math.pow(x, 2 * i) / factorial(2 * i);
-                    sum += term;
-                }
+                terms.push(0);
+                for (let i = 1; 2 * i <= maxDeg; i++) terms.push(2 * i);
             } else if (func === 'exp') {
-                for (let i = 0; i <= n; i++) {
-                    sum += Math.pow(x, i) / factorial(i);
-                }
-            } else if (func === 'ln') {
-                for (let i = 1; i <= n; i++) {
-                    let term = Math.pow(-1, i + 1) * Math.pow(x, i) / i;
-                    sum += term;
-                }
+                for (let i = 0; i <= maxDeg; i++) terms.push(i);
+            }
+            return terms;
+        }
+
+        // 단 한 개의 특정 단독 차수 항값만 계산 f_n(x)
+        function calcSingleTerm(func, x, termDeg) {
+            if (func === 'sin') {
+                let i = (termDeg - 1) / 2;
+                return Math.pow(-1, i) * Math.pow(x, termDeg) / factorial(termDeg);
+            } else if (func === 'cos') {
+                let i = termDeg / 2;
+                return Math.pow(-1, i) * Math.pow(x, termDeg) / factorial(termDeg);
+            } else if (func === 'exp') {
+                return Math.pow(x, termDeg) / factorial(termDeg);
+            }
+            return 0;
+        }
+
+        // 특정 스텝까지 축적된 누적 다항식 값 계산
+        function calcAccumulated(func, x, activeTerms, upToStepIndex) {
+            let sum = 0;
+            for (let i = 0; i <= upToStepIndex; i++) {
+                if (i >= activeTerms.length) break;
+                sum += calcSingleTerm(func, x, activeTerms[i]);
             }
             return sum;
         }
 
-        // 전개 수식 문자열 생성기 (대시보드 출력용)
-        function getFormulaText(func, n) {
-            if (n === 0) {
-                if (func === 'sin' || func === 'ln') return `P_0(x) = 0`;
-                return `P_0(x) = 1`;
-            }
-            let text = `P_${n}(x) = `;
-            let terms = [];
-
-            if (func === 'sin') {
-                for (let i = 0; i <= n; i++) {
-                    let d = 2 * i + 1;
-                    if (d > n) break;
-                    let sign = i % 2 === 0 ? (i === 0 ? "" : "+ ") : "- ";
-                    terms.push(`${sign}x^${d}/${d}!`);
-                }
-            } else if (func === 'cos') {
-                terms.push("1 ");
-                for (let i = 1; i <= n; i++) {
-                    let d = 2 * i;
-                    if (d > n) break;
-                    let sign = i % 2 === 0 ? "+ " : "- ";
-                    terms.push(`${sign}x^${d}/${d}!`);
-                }
-            } else if (func === 'exp') {
-                terms.push("1");
-                if (n >= 1) terms.push("+ x");
-                for (let i = 2; i <= n; i++) {
-                    terms.push(`+ x^${i}/${i}!`);
-                }
-            } else if (func === 'ln') {
-                if (n >= 1) terms.push("x");
-                for (let i = 2; i <= n; i++) {
-                    let sign = i % 2 === 0 ? "- " : "+ ";
-                    terms.push(`${sign}x^${i}/${i}`);
-                }
-            }
-            return text + (terms.length > 0 ? terms.join(" ") : "0");
-        }
-
-        // 화면 리사이즈 세팅
         function resizeCanvas() {
             canvas.width = canvas.parentElement.clientWidth;
             canvas.height = canvas.parentElement.clientHeight;
@@ -268,18 +202,60 @@
             draw();
         }
 
-        // 메인 수학 그래프 드로잉 파트
+        // 텍스트 수식 창 동적 렌더링 시스템
+        function renderFormulaUI(activeTerms, currentIdx, progress) {
+            const box = document.getElementById('box-formula');
+            box.innerHTML = "";
+            
+            let baseText = "f(x) ≈ ";
+            let spanBase = document.createElement('span');
+            spanBase.innerText = baseText;
+            box.appendChild(spanBase);
+
+            if (activeTerms.length === 0) return;
+
+            activeTerms.forEach((deg, idx) => {
+                let span = document.createElement('span');
+                
+                // 각 함수별 예쁜 부호 처리 규칙
+                let termStr = "";
+                if (currentFunc === 'sin') {
+                    let k = (deg - 1) / 2;
+                    let sign = k % 2 === 0 ? (k === 0 ? "" : " + ") : " - ";
+                    termStr = sign + (deg === 1 ? "x" : `(x^${deg})/${deg}!`);
+                } else if (currentFunc === 'cos') {
+                    let k = deg / 2;
+                    let sign = k % 2 === 0 ? " + " : " - ";
+                    termStr = deg === 0 ? "1" : sign + `(x^${deg})/${deg}!`;
+                } else if (currentFunc === 'exp') {
+                    let sign = idx === 0 ? "" : " + ";
+                    termStr = sign + (deg === 0 ? "1" : (deg === 1 ? "x" : `(x^${deg})/${deg}!`));
+                }
+
+                span.innerText = termStr;
+
+                // 실시간 상태에 따른 텍스트 강조 이펙트 적용
+                if (idx < currentIdx) {
+                    span.className = "term-past";
+                } else if (idx === currentIdx) {
+                    span.className = "term-active";
+                    if(isAnimating) {
+                        span.style.opacity = 0.5 + progress * 0.5;
+                    }
+                } else {
+                    span.className = "term-future";
+                }
+                box.appendChild(span);
+            });
+        }
+
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1. 모눈종이 격자선(Grid) 그리기
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 1;
-            
-            let startGridX = Math.floor(-originX / scale);
-            let endGridX = Math.ceil((canvas.width - originX) / scale);
-            let startGridY = Math.floor(-originY / scale);
-            let endGridY = Math.ceil((canvas.height - originY) / scale);
+            // 1. 그리드 평면 구성
+            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+            let startGridX = Math.floor(-originX / scale), endGridX = Math.ceil((canvas.width - originX) / scale);
+            let startGridY = Math.floor(-originY / scale), endGridY = Math.ceil((canvas.height - originY) / scale);
 
             for (let x = startGridX; x <= endGridX; x++) {
                 let cx = originX + x * scale;
@@ -290,167 +266,160 @@
                 ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy); ctx.stroke();
             }
 
-            // 2. 메인 X축, Y축 선명하게 배치
-            ctx.strokeStyle = '#475569';
-            ctx.lineWidth = 2;
+            // 축선 배치
+            ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(originX, 0); ctx.lineTo(originX, canvas.height); ctx.stroke();
 
-            // 축 라벨 추가
-            ctx.fillStyle = '#64748b';
-            ctx.font = '12px Courier New';
-            ctx.fillText('X', canvas.width - 20, originY - 10);
-            ctx.fillText('Y', originX + 10, 20);
-
-            // 3. 원본 초월함수 그래프 그리기 (Green)
-            ctx.strokeStyle = '#34d399';
-            ctx.lineWidth = 3;
+            // 2. 오리지널 초월함수 선 배치 (Green)
+            ctx.strokeStyle = '#34d399'; ctx.lineWidth = 3;
             ctx.beginPath();
             let first = true;
             for (let scrX = 0; scrX < canvas.width; scrX++) {
                 let mathX = (scrX - originX) / scale;
-                if (currentFunc === 'ln' && mathX <= -1) continue; // 로그함수 정의역 한계 제어
-
                 let mathY = Functions[currentFunc](mathX);
                 let scrY = originY - mathY * scale;
-
-                if (scrY >= 0 && scrY <= canvas.height) {
-                    if (first) { ctx.moveTo(scrX, scrY); first = false; }
-                    else { ctx.lineTo(scrX, scrY); }
-                }
+                if (first) { ctx.moveTo(scrX, scrY); first = false; } else { ctx.lineTo(scrX, scrY); }
             }
             ctx.stroke();
 
-            // 4. 테일러 다항식 그래프 그리기 (Rose)
-            ctx.strokeStyle = '#f43f5e';
-            ctx.lineWidth = 2.5;
-            ctx.setLineDash([0, 0]);
-            ctx.beginPath();
-            first = true;
-            for (let scrX = 0; scrX < canvas.width; scrX++) {
-                let mathX = (scrX - originX) / scale;
-                let mathY = taylorApprox(currentFunc, mathX, degree);
-                let scrY = originY - mathY * scale;
-
-                if (scrY >= -canvas.height && scrY <= canvas.height * 2) {
-                    if (first) { ctx.moveTo(scrX, scrY); first = false; }
-                    else { ctx.lineTo(scrX, scrY); }
-                }
-            }
-            ctx.stroke();
-
-            // 5. 탐색 점 오차 비교 세로 가이드 및 타깃 서클 마킹
-            let tgtScrX = originX + targetX * scale;
-            let yTrue = Functions[currentFunc](targetX);
-            let yApprox = taylorApprox(currentFunc, targetX, degree);
+            // 데이터 구조 로드
+            let activeTerms = getActiveTerms(currentFunc, targetMaxDegree);
             
-            let tgtScrYTrue = originY - yTrue * scale;
-            let tgtScrYApprox = originY - yApprox * scale;
+            if (activeTerms.length > 0) {
+                // 3. 현재 렌더링 차수 정보 제어
+                let activeTermDegree = activeTerms[currentAnimStep];
 
-            // 오차 막대 점선 표시
-            ctx.strokeStyle = '#f59e0b';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            ctx.moveTo(tgtScrX, tgtScrYTrue);
-            ctx.lineTo(tgtScrX, tgtScrYApprox);
-            ctx.stroke();
-            ctx.setLineDash([]); // 대시 리셋
+                document.getElementById('lbl-step-info').innerHTML = isAnimating 
+                    ? `🎬 빌드업 중: <span style="color:var(--accent-rose)">${activeTermDegree}차항</span> 조립 및 합성 중...`
+                    : `✅ 분석 완료: 총 <span style="color:var(--accent-blue)">${activeTermDegree}차 다항식</span> 합성 상태`;
 
-            // 참값 위치 점마커 (초록)
-            ctx.fillStyle = '#34d399';
-            ctx.beginPath(); ctx.arc(tgtScrX, tgtScrYTrue, 6, 0, Math.PI * 2); ctx.fill();
+                renderFormulaUI(activeTerms, currentAnimStep, animProgress);
 
-            // 근사값 위치 점마커 (분홍)
-            ctx.fillStyle = '#f43f5e';
-            ctx.beginPath(); ctx.arc(tgtScrX, tgtScrYApprox, 6, 0, Math.PI * 2); ctx.fill();
-
-            // 데이터 갱신 파트 연동
-            updateDataCard(yTrue, yApprox);
-        }
-
-        // 수치 갱신 함수
-        function updateDataCard(yTrue, yApprox) {
-            document.getElementById('val-true').innerText = yTrue.toFixed(6);
-            document.getElementById('val-approx').innerText = yApprox.toFixed(6);
-            document.getElementById('val-error').innerText = Math.abs(yTrue - yApprox).toFixed(6);
-        }
-
-        // 이벤트 리스너 통합 세팅
-        function initUI() {
-            const sliderDegree = document.getElementById('slider-degree');
-            const selectFunc = document.getElementById('select-preset');
-            const sliderX = document.getElementById('slider-x');
-
-            document.getElementById('select-func').addEventListener('change', (e) => {
-                currentFunc = e.target.value;
-                if(currentFunc === 'ln' && targetX <= -1) {
-                    targetX = 0.5;
-                    sliderX.value = 0.5;
+                // 4. [보라색 점선] 이번 단계에 새로 유입되는 단독 항 그래프
+                ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+                ctx.beginPath(); first = true;
+                for (let scrX = 0; scrX < canvas.width; scrX++) {
+                    let mathX = (scrX - originX) / scale;
+                    let mathY = calcSingleTerm(currentFunc, mathX, activeTermDegree);
+                    let scrY = originY - mathY * scale;
+                    if (scrY >= -100 && scrY <= canvas.height + 100) {
+                        if (first) { ctx.moveTo(scrX, scrY); first = false; } else { ctx.lineTo(scrX, scrY); }
+                    }
                 }
-                document.getElementById('box-formula').innerText = getFormulaText(currentFunc, degree);
+                ctx.stroke();
+                ctx.setLineDash([]); // 복원
+
+                // 5. [메인 로즈선] 과거항 누적치 + 현재 유입항 분량만큼 애니메이션 비율 반영 합성 곡선
+                ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 3;
+                ctx.beginPath(); first = true;
+                for (let scrX = 0; scrX < canvas.width; scrX++) {
+                    let mathX = (scrX - originX) / scale;
+                    
+                    // 직전 단계까지의 누적값
+                    let yPast = currentAnimStep > 0 ? calcAccumulated(currentFunc, mathX, activeTerms, currentAnimStep - 1) : 0;
+                    // 새로 더해지는 값 (여기에 진척도 비율 애니메이션 계수 곱해줌)
+                    let yNewContribution = calcSingleTerm(currentFunc, mathX, activeTermDegree) * animProgress;
+                    
+                    let mathY = yPast + yNewContribution;
+                    let scrY = originY - mathY * scale;
+
+                    if (scrY >= -canvas.height && scrY <= canvas.height * 2) {
+                        if (first) { ctx.moveTo(scrX, scrY); first = false; } else { ctx.lineTo(scrX, scrY); }
+                    }
+                }
+                ctx.stroke();
+            }
+        }
+
+        // 루프 프레임 애니메이션 처리기
+        function updateAnim(timestamp) {
+            if (!isAnimating) return;
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            let elapsed = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            // 한 항이 조립되는 시간 속도 제어 (값이 작을수록 부드럽고 천천히 참값에 다가감)
+            animProgress += elapsed / 1200; 
+
+            if (animProgress >= 1.0) {
+                animProgress = 1.0;
+                let activeTerms = getActiveTerms(currentFunc, targetMaxDegree);
+                
+                // 목표 지정 차수까지 아직 남았다면 다음 차수 결합 단계로 이행
+                if (currentAnimStep < activeTerms.length - 1) {
+                    currentAnimStep++;
+                    animProgress = 0.0; // 진척도 리셋 후 다시 빌드업
+                } else {
+                    isAnimating = false; // 최종 완료
+                }
+            }
+
+            draw();
+            if (isAnimating) {
+                requestAnimationFrame(updateAnim);
+            }
+        }
+
+        function initUI() {
+            const selectFunc = document.getElementById('select-func');
+            const sliderDegree = document.getElementById('slider-degree');
+            const btnAnimate = document.getElementById('btn-animate');
+
+            selectFunc.addEventListener('change', (e) => {
+                currentFunc = e.target.value;
+                isAnimating = false;
+                currentAnimStep = getActiveTerms(currentFunc, targetMaxDegree).length - 1;
+                animProgress = 1.0;
                 draw();
             });
 
             sliderDegree.addEventListener('input', (e) => {
-                degree = parseInt(e.target.value);
-                document.getElementById('lbl-degree').innerText = degree;
-                document.getElementById('box-formula').innerText = getFormulaText(currentFunc, degree);
+                targetMaxDegree = parseInt(e.target.value);
+                document.getElementById('lbl-degree').innerText = targetMaxDegree;
+                isAnimating = false;
+                currentAnimStep = getActiveTerms(currentFunc, targetMaxDegree).length - 1;
+                animProgress = 1.0;
                 draw();
             });
 
-            sliderX.addEventListener('input', (e) => {
-                targetX = parseFloat(e.target.value);
-                document.getElementById('lbl-target-x').innerText = targetX.toFixed(2);
-                draw();
+            btnAnimate.addEventListener('click', () => {
+                isAnimating = true;
+                currentAnimStep = 0;
+                animProgress = 0.0; // 0% 상태에서 결합 시작
+                lastTimestamp = 0;
+                requestAnimationFrame(updateAnim);
             });
 
-            document.getElementById('btn-reset-zoom').addEventListener('click', () => {
-                scale = 80;
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                scale = 90;
                 originX = canvas.width / 2;
                 originY = canvas.height / 2;
                 draw();
             });
 
-            // 마우스 드래그로 그래프 평행이동 탐색 구현
+            // 자유 탐색 드래그 마우스 매핑 코드
             let isDragging = false;
-            let prevMouseX, prevMouseY;
-
-            canvas.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                prevMouseX = e.clientX;
-                prevMouseY = e.clientY;
-            });
-
+            let prevX, prevY;
+            canvas.addEventListener('mousedown', (e) => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
             canvas.addEventListener('mousemove', (e) => {
                 if (isDragging) {
-                    let deltaX = e.clientX - prevMouseX;
-                    let deltaY = e.clientY - prevMouseY;
-                    originX += deltaX;
-                    originY += deltaY;
-                    prevMouseX = e.clientX;
-                    prevMouseY = e.clientY;
-                    draw();
+                    originX += (e.clientX - prevX); originY += (e.clientY - prevY);
+                    prevX = e.clientX; prevY = e.clientY; draw();
                 }
             });
-
             window.addEventListener('mouseup', () => isDragging = false);
-            
-            // 마우스 휠로 줌인/줌아웃 조절 가능하도록 확장
             canvas.addEventListener('wheel', (e) => {
                 e.preventDefault();
-                let zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-                scale = Math.min(Math.max(20, scale * zoomFactor), 400);
+                scale = Math.min(Math.max(30, scale * (e.deltaY < 0 ? 1.1 : 0.9)), 500);
                 draw();
             });
         }
 
         window.addEventListener('resize', resizeCanvas);
-
         window.onload = function() {
             resizeCanvas();
             initUI();
-            document.getElementById('box-formula').innerText = getFormulaText(currentFunc, degree);
         };
     </script>
 </body>
