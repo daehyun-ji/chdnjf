@@ -2,92 +2,80 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 초월함수 테일러 급수 결합 시뮬레이터</title>
-    <link rel="stylesheet" href="styles.css">
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <title>테일러 급수 시뮬레이션</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="taylor-mach.js" defer></script> 
 </head>
 <body>
 
-    <div id="info-panel">
-        <button id="btn-toggle-left" class="sidebar-toggle-btn">◀</button>
-        <h2>3D 테일러 기하학</h2>
-        <p>미분 계수의 누적이 어떻게 고차 곡률을 생성하는지 보여주는 <span class="highlight">해석학 시각화 엔진</span></p>
-        <div class="guide-box">
-            <strong>🖱️ 3D 뷰포트 조작:</strong>
-            <ul>
-                <li><span>좌클릭 드래그:</span> 3D 공간 회전</li>
-                <li><span>마우스 휠:</span> 카메라 줌인/줌아웃</li>
-                <li><span>우클릭 드래그:</span> 시점 평행 이동</li>
-            </ul>
-        </div>
-        <div class="preset-section">
-            <label for="preset-select">🔮 대상 초월함수 선택:</label>
-            <select id="preset-select">
-                <option value="sin">f(x) = sin(x) [홀수 교대급수]</option>
-                <option value="cos">f(x) = cos(x) [짝수 대칭급수]</option>
-                <option value="exp">f(x) = e^x [자연 지수 급수]</option>
-            </select>
-        </div>
-    </div>
-
-    <div id="top-control-panel" class="right-panel">
-        <button id="btn-toggle-top" class="sidebar-toggle-btn">▶</button>
+<div class="main-content" id="mainContent">
+    <div class="container">
+        <h2>테일러 급수(Taylor Series) 근사 시뮬레이션</h2>
+        <p>복잡한 초월함수가 중심점(a)을 기준으로 다항함수들의 결합을 통해 서서히 동화되어 가는 기하학적 과정을 탐색합니다.</p>
         
-        <div class="panel-section">
-            <div class="panel-title">엔진 컨트롤러 (ENGINE CONTROLLER)</div>
-            <div class="btn-row">
-                <button id="btn-toggle-sim" class="btn btn-blue">⚡ 급수 합성 애니메이션 재생</button>
-                <button id="btn-reset-sim" class="btn btn-slate">초기화</button>
+        <div class="controls">
+            <div class="preset-row">
+                <span class="preset-label">함수 선택:</span>
+                <select id="funcSelect" class="styled-select">
+                    <option value="sin">sin(x)</option>
+                    <option value="cos">cos(x)</option>
+                    <option value="exp">e^x (지수함수)</option>
+                    <option value="ln">ln(1+x) (로그함수)</option>
+                </select>
+
+                <span class="preset-label" style="margin-left: 20px;">추천 설정 프리셋:</span>
+                <button id="presetMaclaurin" class="btn-purple">매클로린 급수 (a=0)</button>
+                <button id="presetHighOrder" class="btn-purple">12차 고밀도 근사</button>
+            </div>
+
+            <div class="action-row">
+                <div class="control-group">
+                    <label for="orderInput">근사 다항식 차수 (n): <span id="orderVal" class="highlight-freq">1</span>차</label>
+                    <input type="range" id="orderInput" min="1" max="15" step="1" value="1">
+                </div>
+                <div class="control-group">
+                    <label for="centerInput">근사 중심점 (a): <span id="centerVal" class="highlight-freq">0.0</span></label>
+                    <input type="range" id="centerInput" min="-5.0" max="5.0" step="0.1" value="0.0">
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-container">
+                <h3>1. 기하학적 근사 매핑 (초월함수 vs 다항함수)</h3>
+                <div class="canvas-wrapper">
+                    <canvas id="mainChart"></canvas>
+                </div>
             </div>
             
-            <div class="toggle-container">
-                <div class="toggle-row">
-                    <input type="checkbox" id="toggle-construction" checked>
-                    <label for="toggle-construction">Z축 레이어별 개별 기여항 곡선 표시</label>
-                </div>
-                <div id="t-slider-wrapper">
-                    <label>근사 차수(N):</label>
-                    <input type="range" id="input-n-value" min="1" max="13" step="1" value="5">
-                    <span id="n-value-display">5</span>
-                </div>
-                <div id="speed-slider-wrapper" style="display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 4px;">
-                    <label style="font-size: 11px; color: #94a3b8; width: 55px;">추적 지점(x):</label>
-                    <input type="range" id="input-target-x" min="-4" max="4" step="0.1" value="1.5" style="flex: 1; accent-color: #38bdf8; height: 4px; cursor: pointer;">
-                    <span id="x-value-display" style="font-family: monospace; font-size: 11px; color: #38bdf8; width: 30px; text-align: right;">1.5</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel-section">
-            <div class="panel-title">해석학 급수 수식 (PARAMETRIC MATRIX)</div>
-            <div class="math-label">현재 다항식: <span id="curve-degree" class="highlight">P_5(x)</span></div>
-            <div class="math-container">
-                <div id="matrix-x" style="white-space: normal; word-break: break-all;">P(x) = 계산 대기 중...</div>
-                
-                <div id="final-b-point-container" style="margin-top: 12px; border-top: 1px dashed #2e3d52; padding-top: 10px; white-space: normal;">
-                    <div style="color: #34d399; font-weight: bold; font-size: 11px;">🎯 탐색 지점 오차 분석 ($x = \alpha$):</div>
-                    <div id="final-b-coordinates" style="font-family: monospace; color: #ffffff; font-size: 12px; margin-top: 2px;">참값 f(x): 0.00 | 근사 P(x): 0.00</div>
-                    
-                    <div style="font-size: 11px; color: #cbd5e1; margin-top: 6px; display: flex; align-items: center; gap: 6px;">
-                        나머지 항 절대오차 $|R_n(x)|$: <span id="interpolation-ratio" style="color: #ef4444; font-weight: bold; font-family: monospace;">0.0000</span>
-                    </div>
+            <div class="chart-container">
+                <h3>2. x 변위에 따른 절대 오차 수렴성 |f(x) - P(x)|</h3>
+                <div class="canvas-wrapper">
+                    <canvas id="errorChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <div id="bottom-control-panel" class="right-panel">
-        <button id="btn-toggle-bottom" class="sidebar-toggle-btn">▶</button>
-        <div class="panel-section" style="margin-bottom: 0; padding-bottom: 0; border: none;">
-            <div class="panel-title">계수 가중치 튜닝 (COEFFICIENT TUNING)</div>
-            <div id="dynamic-sliders-container"></div>
-        </div>
-    </div>
+<div id="sidebar" class="sidebar">
+    <h3>수학적 연산식 대시보드</h3>
+    
+    <h4>1. 목표 초월함수</h4>
+    <div id="formula-target" class="formula-box"></div>
+    
+    <h4>2. 테일러 급수 일반식</h4>
+    <div class="formula-box" id="formula-general">f(x) = ∑ [f^(n)(a) / n!] · (x - a)^n</div>
+    <div class="formula-note">※ 차수가 커질수록 다항식이 원본 함수와 조밀하게 겹치게 됩니다.</div>
+    
+    <h4>3. 현재 연산된 근사 다항식 P_n(x)</h4>
+    <div id="formula-poly" class="formula-box"></div>
+    
+    <h4>4. 실시간 수렴 상태값</h4>
+    <div id="formula-curr-info" class="formula-box"></div>
+    <div class="formula-note">※ 중심점 a에서 멀어질수록 하위 차수 다항식의 오차 스펙트럼이 급격히 발산하는 것을 관찰할 수 있습니다.</div>
+</div>
 
-    <script src="taylor-math.js"></script>
-    <script src="app.js"></script>
 </body>
 </html>
